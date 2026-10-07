@@ -1,0 +1,35 @@
+# Microservicio de extracción de texto PDF (Go).
+# Servicio interno: el monolito lo invoca directamente por la red compartida
+# (DOCUMENT_GATEWAY_URL / PDF_EXTRACT_SERVICE_URL), sin exponerlo vía Traefik.
+# Proyecto aislado para que `docker compose up` de otras fichas no lo trate
+# como contenedor huérfano.
+name: microservicio-io
+
+services:
+  microservicio-io:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: microservicio-io:v1.0.0
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      - PORT=8080
+      - PDF_MAX_SIZE_MB=${PDF_MAX_SIZE_MB:-15}
+      - TZ=${TZ:-UTC}
+    labels:
+      - "traefik.enable=false"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - shared-network
+
+networks:
+  shared-network:
+    name: ${SHARED_NETWORK_NAME:-default-shared-network}
+    external: true
